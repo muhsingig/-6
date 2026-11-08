@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Blog — Stay Purr cat sitting</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bayon&family=Inter+Tight:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/pages.css">
+</head>
+<body data-page="post" data-footer="mint">
+<div data-site="header"></div>
+
+<main class="post">
+  <article class="post__article">
+    <a href="blog.html" class="post__back p2-medium">← all stories</a>
+    <div class="post__meta p2-medium"><span id="post-cat"></span><span id="post-date"></span></div>
+    <h1 class="post__title h4" id="post-title"></h1>
+    <div class="post__image js-intro-fade" id="post-img"></div>
+    <div class="post__body" id="post-body"></div>
+    <a href="book.html" class="post__cta btn-dot" style="--bg-btn-color:var(--c-ink);--text-btn-color:var(--c-gray2)"><span class="button-wrap"><span class="button-wrap__content"><span class="button-wrap__left-circle"></span><span class="button-wrap__text h9">book a sitter</span><span class="button-wrap__right-circle"></span></span></span></a>
+  </article>
+  <section class="post__more">
+    <p class="post__more-title h6 js-lines">more stories</p>
+    <div class="blog__articles" id="post-more"></div>
+  </section>
+</main>
+
+<div data-site="footer"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
+<script src="js/art.js"></script>
+<script src="js/blog-data.js"></script>
+<script src="js/core.js"></script>
+<script src="js/pages.js"></script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Blog — Stay Purr cat sitting</title>
+  <meta name="description" content="Cat care tips, behaviour notes and fast facts from the Stay Purr sitters.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bayon&family=Inter+Tight:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/pages.css">
+</head>
+<body data-page="blog" data-footer="mint">
+<div data-site="header"></div>
+
+<main class="blog-page__wrap">
+  <div class="decor-circle-big"></div>
+  <div class="decor-circle-big is-light"></div>
+  <div class="blog-page__content">
+    <span class="blog-decor-ball" data-art="smallYarn"></span>
+    <h1 class="blog__title h2 js-intro-lines">stay purr<br>blog</h1>
+    <div class="blog__filter js-intro-fade">
+      <ul class="filter__categories" id="blog-cats"></ul>
+      <div class="select select--sort" id="blog-sort">
+        <p class="select__current p2-medium">newest</p>
+        <span class="select__arrow" data-art="icon.arrowDown"></span>
+        <div class="select__options">
+          <button class="select__option p2-medium" data-sort="newest">newest</button>
+          <button class="select__option p2-medium" data-sort="popular">popular</button>
+          <button class="select__option p2-medium" data-sort="oldest">oldest</button>
+        </div>
+      </div>
+    </div>
+    <div class="blog__articles" id="blog-grid"></div>
+  </div>
+</main>
+
+<div data-site="footer"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
+<script src="js/art.js"></script>
+<script src="js/blog-data.js"></script>
+<script src="js/core.js"></script>
+<script src="js/pages.js"></script>
+</body>
+</html>

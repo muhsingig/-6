@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Contacts — Stay Purr cat sitting</title>
+  <meta name="description" content="Get in touch with Stay Purr. Questions about cat sitting, availability or a meet-and-greet — we usually reply within a day.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bayon&family=Inter+Tight:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/pages.css">
+</head>
+<body data-page="contacts" data-theme="plum" data-footer="lilac">
+<div data-site="header"></div>
+
+<main class="contacts__wrap">
+  <section class="contacts__hero">
+    <h1 class="contacts__title h0 js-intro-lines">get in touch</h1>
+    <div class="contacts__hero-bg">
+      <div class="contacts__peek" data-art="catFace:2"></div>
+      <div class="contacts__balls" data-art="yarnCluster"></div>
+      <div class="contacts__content">
+        <p class="contacts__address p2-medium">200 n. spring street<br>los angeles, ca 90012<br>united states</p>
+        <span class="contacts__arrow-wrap" data-art="icon.arrowDown"></span>
+        <a class="contacts__email h4" href="mailto:hello@staypurr.com">hello@staypurr.com</a>
+      </div>
+    </div>
+    <a href="book.html" class="contacts__book-link js-rotate-scroll" aria-label="Book a visit" data-ring="let's book a visit" data-size="36"></a>
+    <a href="#" class="contacts__circle-link small"><span class="h9">tik-tok</span></a>
+    <a href="#" class="contacts__circle-link big"><span class="h9">instagram</span></a>
+  </section>
+
+  <section class="contacts__form-wrap">
+    <p class="contacts__form-title h6 js-lines">got a question?</p>
+    <form class="contacts-form" id="contact-form" novalidate>
+      <label class="input__wrap"><input class="input p2-medium" name="name" autocomplete="name"><span class="input__placeholder p2-medium">name</span><span class="error-message p3-medium"></span></label>
+      <label class="input__wrap"><input class="input p2-medium" name="email" type="email" autocomplete="email"><span class="input__placeholder p2-medium">email</span><span class="error-message p3-medium"></span></label>
+      <label class="input__wrap"><input class="input p2-medium" name="phone" type="tel" autocomplete="tel"><span class="input__placeholder p2-medium">phone</span><span class="error-message p3-medium"></span></label>
+      <label class="textarea__wrap"><textarea class="form-textarea p2-medium" name="message" rows="4" placeholder="message"></textarea></label>
+      <button class="submit-btn btn-dot" type="submit" disabled style="--bg-btn-color:var(--c-plum);--text-btn-color:var(--c-dark-white);--active-btn-color:var(--c-plum-dark)"><span class="button-wrap"><span class="button-wrap__content"><span class="button-wrap__left-circle"></span><span class="button-wrap__text h9">send</span><span class="button-wrap__right-circle"></span></span></span></button>
+      <p class="contacts-form__thanks h8">thank you! we’ll get back to you within a day.</p>
+    </form>
+  </section>
+</main>
+
+<div data-site="footer"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
+<script src="js/art.js"></script>
+<script src="js/core.js"></script>
+<script src="js/pages.js"></script>
+</body>
+</html>
