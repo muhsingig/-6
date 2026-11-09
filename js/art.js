@@ -68,6 +68,9 @@
       g += `<ellipse cx="${cx + off}" cy="${cy}" rx="${r * 0.3}" ry="${r * 1.1}" transform="rotate(${rot + 70} ${cx} ${cy})" opacity=".8"/>`;
     }
     g += `</g>`;
+    // volume: soft highlight top-left, shaded rim bottom-right
+    g += `<defs><radialGradient id="${id}s" cx=".36" cy=".3" r=".78"><stop offset="0" stop-color="#fff" stop-opacity=".45"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/><stop offset=".8" stop-color="#2a2350" stop-opacity="0"/><stop offset="1" stop-color="#2a2350" stop-opacity=".2"/></radialGradient></defs>`;
+    g += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#${id}s)"/>`;
     if (tail) {
       g += `<path d="M${cx + r * 0.7} ${cy + r * 0.7} C${cx + r * 1.2} ${cy + r * 1.1} ${cx + r * 0.9} ${cy + r * 1.5} ${cx + r * 1.5} ${cy + r * 1.6}" fill="none" stroke="${fill2}" stroke-width="${r * 0.09}" stroke-linecap="round"/>`;
     }
@@ -94,25 +97,79 @@
     </svg>`;
   }
 
+  /* ---------- coats shared by every cat on the site ---------- */
+  const COATS = {
+    white: { fur: '#ffffff', brush: C.black, ear: C.peach, face: C.black, nose: C.black, whisk: C.black, stripes: false, eye: '#86b9e6', blush: false },
+    orange: { fur: '#ee9b52', brush: '#a24f17', ear: '#fcd9bf', face: '#3a1d0c', nose: '#c4616a', whisk: '#5a2c0e', stripes: true, eye: '#cdd64a', blush: true },
+    black: { fur: '#26232f', brush: '#55506a', ear: '#7d5468', face: '#f4f1e6', nose: '#e58aa1', whisk: '#a9a5b8', stripes: false, eye: '#7ccf6a', blush: true },
+    grey: { fur: '#a3a9b1', brush: '#4e555d', ear: '#f3c9c0', face: '#22262b', nose: '#d98a94', whisk: '#3c4248', stripes: true, eye: '#e8c13c', blush: true },
+  };
+
+  /* ---------- the brushy cat head (drawn around 850,560) ---------- */
+  // expr: 'sleepy' | 'happy' | 'open'. hero=true adds both eye states + hooks for animation.
+  function catHead(name, expr = 'open', { seed = 0, hero = false, look = [0, 0] } = {}) {
+    const k = COATS[name] || COATS.white;
+    const W = k.fur, B = k.brush;
+    let s = `<g class="hc-head"><g class="hc-look">`;
+    // ears (outer group = idle CSS animation, inner = twitch)
+    s += `<g class="hc-ear-l"><g class="hc-ear-tw"><path d="M555 470 L520 160 Q530 130 560 145 L780 340 Z" fill="${W}"/><path d="M585 420 L565 215 L720 345 Z" fill="${k.ear}"/>`;
+    s += brush(520, 165, 515, 320, 560, 470, 14, B) + brush(525, 150, 640, 220, 770, 330, 12, B) + `</g></g>`;
+    s += `<g class="hc-ear-r"><g class="hc-ear-tw"><path d="M1145 470 L1180 160 Q1170 130 1140 145 L920 340 Z" fill="${W}"/><path d="M1115 420 L1135 215 L980 345 Z" fill="${k.ear}"/>`;
+    s += brush(1180, 165, 1185, 320, 1140, 470, -14, B) + brush(1175, 150, 1060, 220, 930, 330, -12, B) + `</g></g>`;
+    // skull + cheeks
+    s += `<ellipse cx="850" cy="560" rx="345" ry="290" fill="${W}"/>`;
+    s += `<ellipse cx="555" cy="660" rx="165" ry="120" fill="${W}"/><ellipse cx="1145" cy="660" rx="165" ry="120" fill="${W}"/>`;
+    s += tufts(850, 560, 345, 290, Math.PI * 1.08, Math.PI * 1.32, 6, 80, 10, B, 3 + seed);
+    s += tufts(850, 560, 345, 290, Math.PI * 1.68, Math.PI * 1.92, 6, 80, 10, B, 4 + seed);
+    s += tufts(560, 665, 170, 125, Math.PI * 0.55, Math.PI * 1.15, 8, 75, 10, B, 5 + seed);
+    s += tufts(1140, 665, 170, 125, -Math.PI * 0.15, Math.PI * 0.45, 8, 75, 10, B, 6 + seed);
+    const sw = k.stripes ? 1.8 : 1;
+    s += brush(850, 330, 845, 380, 850, 430, 11 * sw, B) + brush(800, 345, 790, 390, 805, 425, 8 * sw, B) + brush(900, 345, 910, 390, 895, 425, 8 * sw, B);
+    if (k.stripes) {
+      s += brush(560, 600, 500, 610, 440, 640, 12, B) + brush(570, 650, 505, 668, 450, 700, 10, B);
+      s += brush(1140, 600, 1200, 610, 1260, 640, -12, B) + brush(1130, 650, 1195, 668, 1250, 700, -10, B);
+    }
+    // eyes
+    const closed = (type) => type === 'happy'
+      ? `<g class="hc-eyes-closed" fill="none" stroke="${k.face}" stroke-width="16" stroke-linecap="round"><path d="M665 580 Q725 520 785 580"/><path d="M915 580 Q975 520 1035 580"/></g>`
+      : `<g class="hc-eyes-closed" fill="none" stroke="${k.face}" stroke-width="16" stroke-linecap="round"><path d="M660 555 Q725 610 790 555"/><path d="M910 555 Q975 610 1040 555"/><path d="M672 572 L650 590" stroke-width="8"/><path d="M1028 572 L1050 590" stroke-width="8"/></g>`;
+    const [lx, ly] = look;
+    const open = `<g class="hc-eyes-open"><g class="hc-blink">
+        <path d="M652 560 Q725 486 798 560 Q725 624 652 560 Z" fill="${k.eye}"/><path d="M902 560 Q975 486 1048 560 Q975 624 902 560 Z" fill="${k.eye}"/>
+        <g class="hc-pupil"><ellipse cx="${725 + lx}" cy="${558 + ly}" rx="14" ry="44" fill="#121016"/><circle cx="${744 + lx}" cy="${534 + ly}" r="9" fill="#fff"/></g>
+        <g class="hc-pupil"><ellipse cx="${975 + lx}" cy="${558 + ly}" rx="14" ry="44" fill="#121016"/><circle cx="${994 + lx}" cy="${534 + ly}" r="9" fill="#fff"/></g>
+        <path d="M652 560 Q725 486 798 560" fill="none" stroke="${k.face === '#f4f1e6' ? '#121016' : k.face}" stroke-width="8" stroke-linecap="round"/><path d="M902 560 Q975 486 1048 560" fill="none" stroke="${k.face === '#f4f1e6' ? '#121016' : k.face}" stroke-width="8" stroke-linecap="round"/>
+      </g></g>`;
+    if (hero) s += (expr === 'open' ? '' : closed(expr)) + open;
+    else s += expr === 'open' ? open : closed(expr);
+    if (k.blush) s += `<ellipse cx="660" cy="660" rx="55" ry="26" fill="${k.nose}" opacity=".35"/><ellipse cx="1040" cy="660" rx="55" ry="26" fill="${k.nose}" opacity=".35"/>`;
+    s += `<path d="M812 638 Q850 624 888 638 Q872 676 850 684 Q828 676 812 638 Z" fill="${k.nose}"/>`;
+    s += `<path d="M850 684 Q850 716 812 722 M850 684 Q850 716 888 722" fill="none" stroke="${k.face}" stroke-width="10" stroke-linecap="round"/>`;
+    s += `<g class="hc-whiskers" fill="none" stroke="${k.whisk}" stroke-width="5" stroke-linecap="round">
+      <path d="M700 660 Q560 620 400 615"/><path d="M700 685 Q550 690 390 720"/><path d="M710 705 Q590 740 470 810"/>
+      <path d="M1000 660 Q1140 620 1300 615"/><path d="M1000 685 Q1150 690 1310 720"/><path d="M990 705 Q1110 740 1230 810"/></g>`;
+    s += `</g></g>`;
+    return s;
+  }
+  // place a head: centre (x,y), scale s, optional rotation
+  const head = (name, expr, x, y, sc, opts = {}) =>
+    `<g transform="translate(${x} ${y}) rotate(${opts.rot || 0}) scale(${sc})"><g transform="translate(-850 -560)">${catHead(name, expr, opts)}</g></g>`;
+
   /* ---------- HERO: three big cats (white, orange tabby, black) ---------- */
   const HERO_COATS = [
-    { name: 'white', fur: '#ffffff', brush: C.black, ear: C.peach, face: C.black, nose: C.black, whisk: C.black, eyes: 'sleepy', stripes: false,
-      yarn: C.yarn, ball: { fill: '#ff9a57', fill2: C.yarn, line: C.yarnDark } },
-    { name: 'orange', fur: '#ee9b52', brush: '#a24f17', ear: '#fcd9bf', face: '#3a1d0c', nose: '#c4616a', whisk: '#5a2c0e', eyes: 'happy', stripes: true,
-      yarn: C.ink, ball: { fill: '#6a74ee', fill2: C.ink, line: '#1f2897' } },
-    { name: 'black', fur: '#26232f', brush: '#55506a', ear: '#7d5468', face: '#f4f1e6', nose: '#e58aa1', whisk: '#a9a5b8', eyes: 'open', stripes: false,
-      yarn: C.yarn, ball: { fill: '#ff9a57', fill2: C.yarn, line: C.yarnDark } },
+    { name: 'white', eyes: 'sleepy', yarn: C.yarn, ball: { fill: '#ff9a57', fill2: C.yarn, line: C.yarnDark } },
+    { name: 'orange', eyes: 'happy', yarn: C.ink, ball: { fill: '#6a74ee', fill2: C.ink, line: '#1f2897' } },
+    { name: 'black', eyes: 'open', yarn: C.yarn, ball: { fill: '#ff9a57', fill2: C.yarn, line: C.yarnDark } },
   ];
   function heroCat(v = 0) {
-    const k = HERO_COATS[v] || HERO_COATS[0];
+    const h = HERO_COATS[v] || HERO_COATS[0];
+    const k = COATS[h.name];
     const W = k.fur, B = k.brush;
-    let s = `<svg viewBox="0 0 1700 1700" xmlns="http://www.w3.org/2000/svg" class="hero-cat hero-cat--${k.name}"><g transform="translate(306 115) scale(0.64)">`;
-    // body (breathing group)
+    let s = `<svg viewBox="0 0 1700 1700" xmlns="http://www.w3.org/2000/svg" class="hero-cat hero-cat--${h.name}${h.eyes === 'open' ? ' eyes-open' : ''}"><g transform="translate(306 115) scale(0.64)">`;
     s += `<g class="hc-body">`;
     s += `<path d="M520 760 C380 900 280 1200 230 2050 L1470 2050 C1420 1200 1320 900 1180 760 Z" fill="${W}"/>`;
     s += `<ellipse cx="850" cy="900" rx="330" ry="230" fill="${W}"/>`;
-    // tail curling round the front
-    s += `<path d="M1330 1500 C1520 1430 1600 1250 1520 1120 C1480 1060 1420 1080 1440 1140 C1490 1260 1420 1390 1300 1420 Z" fill="${W}"/>`;
+    s += `<path class="hc-tail" d="M1330 1500 C1520 1430 1600 1250 1520 1120 C1480 1060 1420 1080 1440 1140 C1490 1260 1420 1390 1300 1420 Z" fill="${W}"/>`;
     s += tufts(1480, 1260, 95, 170, -1.4, 1.2, 9, 70, 9, B, 31 + v);
     if (k.stripes) {
       for (let i = 0; i < 5; i++) {
@@ -122,169 +179,102 @@
       }
       s += brush(1500, 1150, 1530, 1190, 1545, 1240, 10, B) + brush(1470, 1330, 1500, 1350, 1520, 1380, 10, B);
     }
-    // fur on body edges
     s += tufts(850, 1350, 560, 620, Math.PI * 0.98, Math.PI * 1.35, 16, 110, 12, B, 7 + v);
     s += tufts(850, 1350, 560, 620, Math.PI * 1.65, Math.PI * 2.02, 16, 110, 12, B, 8 + v);
-    // chest fur, inward strokes
     s += tufts(850, 1000, 220, 200, 0.3, Math.PI - 0.3, 10, 90, 9, B, 11 + v, 1);
     s += tufts(850, 1250, 360, 260, 0.2, Math.PI - 0.2, 12, 100, 10, B, 12 + v, 1);
     s += `</g>`;
-    // head (tilting group)
-    s += `<g class="hc-head">`;
-    s += `<g class="hc-ear-l"><path d="M555 470 L520 160 Q530 130 560 145 L780 340 Z" fill="${W}"/><path d="M585 420 L565 215 L720 345 Z" fill="${k.ear}"/>`;
-    s += brush(520, 165, 515, 320, 560, 470, 14, B) + brush(525, 150, 640, 220, 770, 330, 12, B) + `</g>`;
-    s += `<g class="hc-ear-r"><path d="M1145 470 L1180 160 Q1170 130 1140 145 L920 340 Z" fill="${W}"/><path d="M1115 420 L1135 215 L980 345 Z" fill="${k.ear}"/>`;
-    s += brush(1180, 165, 1185, 320, 1140, 470, -14, B) + brush(1175, 150, 1060, 220, 930, 330, -12, B) + `</g>`;
-    s += `<ellipse cx="850" cy="560" rx="345" ry="290" fill="${W}"/>`;
-    s += `<ellipse cx="555" cy="660" rx="165" ry="120" fill="${W}"/><ellipse cx="1145" cy="660" rx="165" ry="120" fill="${W}"/>`;
-    // head fur
-    s += tufts(850, 560, 345, 290, Math.PI * 1.08, Math.PI * 1.32, 6, 80, 10, B, 3 + v);
-    s += tufts(850, 560, 345, 290, Math.PI * 1.68, Math.PI * 1.92, 6, 80, 10, B, 4 + v);
-    s += tufts(560, 665, 170, 125, Math.PI * 0.55, Math.PI * 1.15, 8, 75, 10, B, 5 + v);
-    s += tufts(1140, 665, 170, 125, -Math.PI * 0.15, Math.PI * 0.45, 8, 75, 10, B, 6 + v);
-    // forehead stripes (bolder "M" on the tabby)
-    const sw = k.stripes ? 1.8 : 1;
-    s += brush(850, 330, 845, 380, 850, 430, 11 * sw, B) + brush(800, 345, 790, 390, 805, 425, 8 * sw, B) + brush(900, 345, 910, 390, 895, 425, 8 * sw, B);
-    if (k.stripes) {
-      s += brush(560, 600, 500, 610, 440, 640, 12, B) + brush(570, 650, 505, 668, 450, 700, 10, B);
-      s += brush(1140, 600, 1200, 610, 1260, 640, -12, B) + brush(1130, 650, 1195, 668, 1250, 700, -10, B);
-    }
-    // eyes: white = sleepy, orange = happy, black = wide awake
-    if (k.eyes === 'open') {
-      s += `<g class="hc-eyes">
-        <path d="M655 560 Q725 490 795 560 Q725 620 655 560 Z" fill="#7ccf6a"/><path d="M905 560 Q975 490 1045 560 Q975 620 905 560 Z" fill="#7ccf6a"/>
-        <ellipse class="hc-pupil" cx="725" cy="558" rx="13" ry="44" fill="#121016"/><ellipse class="hc-pupil" cx="975" cy="558" rx="13" ry="44" fill="#121016"/>
-        <circle cx="745" cy="535" r="9" fill="#fff"/><circle cx="995" cy="535" r="9" fill="#fff"/></g>`;
-    } else if (k.eyes === 'happy') {
-      s += `<g class="hc-eyes" fill="none" stroke="${k.face}" stroke-width="16" stroke-linecap="round">
-        <path d="M665 580 Q725 520 785 580"/><path d="M915 580 Q975 520 1035 580"/></g>`;
-    } else {
-      s += `<g class="hc-eyes" fill="none" stroke="${k.face}" stroke-width="16" stroke-linecap="round">
-        <path d="M660 555 Q725 610 790 555"/><path d="M910 555 Q975 610 1040 555"/>
-        <path d="M672 572 L650 590" stroke-width="8"/><path d="M1028 572 L1050 590" stroke-width="8"/></g>`;
-    }
-    if (k.name !== 'white') s += `<ellipse cx="660" cy="660" rx="55" ry="26" fill="${k.nose}" opacity=".35"/><ellipse cx="1040" cy="660" rx="55" ry="26" fill="${k.nose}" opacity=".35"/>`;
-    // nose + mouth
-    s += `<path d="M812 638 Q850 624 888 638 Q872 676 850 684 Q828 676 812 638 Z" fill="${k.nose}"/>`;
-    s += `<path d="M850 684 Q850 716 812 722 M850 684 Q850 716 888 722" fill="none" stroke="${k.face}" stroke-width="10" stroke-linecap="round"/>`;
-    // whiskers
-    s += `<g class="hc-whiskers" fill="none" stroke="${k.whisk}" stroke-width="5" stroke-linecap="round">
-      <path d="M700 660 Q560 620 400 615"/><path d="M700 685 Q550 690 390 720"/><path d="M710 705 Q590 740 470 810"/>
-      <path d="M1000 660 Q1140 620 1300 615"/><path d="M1000 685 Q1150 690 1310 720"/><path d="M990 705 Q1110 740 1230 810"/></g>`;
-    s += `</g>`;
-    // yarn hanging from mouth
-    s += `<g class="hc-yarn" fill="none" stroke="${k.yarn}" stroke-linecap="round" stroke-linejoin="round">
+    s += catHead(h.name, h.eyes, { seed: v, hero: true });
+    s += `<g class="hc-yarn" fill="none" stroke="${h.yarn}" stroke-linecap="round" stroke-linejoin="round">
       <path d="M836 718 C820 820 740 900 720 1030 C700 1170 800 1230 760 1360 C730 1450 640 1470 590 1520" stroke-width="20"/>
       <path d="M866 716 C900 800 930 880 900 960 C870 1040 800 1010 812 950 C824 890 880 900 900 960 C920 1030 930 1100 900 1180" stroke-width="18"/>
     </g>`;
-    s += `<g class="hc-yarnball">${yarnBall(560, 1555, 70, { ...k.ball, sw: 0.05, rot: -30, wraps: 7 })}</g>`;
+    s += `<g class="hc-yarnball">${yarnBall(560, 1555, 70, { ...h.ball, sw: 0.05, rot: -30, wraps: 7 })}</g>`;
     s += `</g></svg>`;
     return s;
   }
-  // all three coats stacked; main.js cycles them
   function heroCats() {
-    return HERO_COATS.map((k, i) => `<div class="hc-slide${i === 0 ? ' is-active' : ''}" data-coat="${k.name}">${heroCat(i)}</div>`).join('');
+    return HERO_COATS.map((h, i) => `<div class="hc-slide${i === 0 ? ' is-active' : ''}" data-coat="${h.name}">${heroCat(i)}</div>`).join('');
   }
 
-  /* ---------- SERVICES slide 1: white cat walking (drop-in visits) ---------- */
+  /* ---------- fluffy body helpers for scenes ---------- */
+  // filled blob (ellipse) with outward tufts on chosen arcs
+  const fluff = (cx, cy, rx, ry, fill, brushC, seed, arcs = [[Math.PI, Math.PI * 2]], n = 10, len = 28, w = 4) =>
+    `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${fill}"/>` + arcs.map(([a, b], i) => tufts(cx, cy, rx, ry, a, b, n, len, w, brushC, seed + i)).join('');
+  const paw = (x, y, rx, ry, fill, b, rot = 0) =>
+    `<g transform="rotate(${rot} ${x} ${y})"><ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${fill}"/>${brush(x - rx * 0.35, y - ry * 0.2, x - rx * 0.32, y + ry * 0.2, x - rx * 0.3, y + ry * 0.6, 2.6, b)}${brush(x + rx * 0.1, y - ry * 0.2, x + rx * 0.12, y + ry * 0.2, x + rx * 0.14, y + ry * 0.6, 2.6, b)}</g>`;
+  const sparkle = (x, y, r, c) => `<path d="M${x} ${y - r} L${x + r * 0.28} ${y - r * 0.28} L${x + r} ${y} L${x + r * 0.28} ${y + r * 0.28} L${x} ${y + r} L${x - r * 0.28} ${y + r * 0.28} L${x - r} ${y} L${x - r * 0.28} ${y - r * 0.28} Z" fill="${c}"/>`;
+  const heart = (x, y, sc, c) => `<path transform="translate(${x} ${y}) scale(${sc})" d="M0 -6 C-6 -18 -26 -14 -24 2 C-22 14 -8 22 0 30 C8 22 22 14 24 2 C26 -14 6 -18 0 -6 Z" fill="${c}"/>`;
+
+  /* ---------- SERVICES slide 1: white cat on a stroll (drop-in visits) ---------- */
   function slideWalk() {
-    const B = C.black;
-    const leg = (d, fill, w = 34) => `<path d="${d}" fill="none" stroke="${B}" stroke-width="${w + 8}" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${fill}" stroke-width="${w}" stroke-linecap="round"/>`;
-    let s = `<svg viewBox="0 0 600 520" xmlns="http://www.w3.org/2000/svg" stroke-linejoin="round">`;
-    s += `<ellipse cx="320" cy="452" rx="220" ry="16" fill="#000" opacity=".07"/>`;
-    // far legs (shaded)
-    s += leg('M212 320 C206 370 200 405 196 436', '#dde5e0', 30) + leg('M438 318 C452 365 462 400 470 432', '#dde5e0', 30);
-    // tail, raised and curled
-    s += leg('M486 262 C548 240 566 178 548 126 C538 98 512 92 502 112', '#fff', 30);
+    const B = C.black, W = '#fff', S = '#e2e8e4';
+    const leg = (d, fill, w = 40) => `<path d="${d}" fill="none" stroke="${fill}" stroke-width="${w}" stroke-linecap="round"/>`;
+    let s = `<svg viewBox="0 0 600 520" xmlns="http://www.w3.org/2000/svg">`;
+    s += `<ellipse cx="330" cy="456" rx="230" ry="16" fill="#1d1b26" opacity=".08"/>`;
+    // far legs (in shade)
+    s += leg('M222 318 C214 368 206 404 202 436', S) + leg('M440 318 C454 362 464 398 472 432', S);
+    s += brush(232, 330, 222, 380, 214, 430, 4, B) + brush(452, 330, 464, 380, 478, 428, -4, B);
+    // tail, raised in an S
+    s += `<path d="M486 262 C552 236 566 168 540 118 C526 92 500 92 498 116" fill="none" stroke="${W}" stroke-width="34" stroke-linecap="round"/>`;
+    [[520, 238, 548, 228, 566, 214], [550, 196, 576, 184, 588, 166], [556, 150, 578, 132, 584, 112], [528, 104, 538, 84, 532, 66]].forEach(([a, b, c, d, e, f]) => { s += brush(a, b, c, d, e, f, 6, B); });
     // body
-    s += `<path d="M175 258 C185 206 262 190 342 195 C424 200 482 216 496 266 C506 312 480 346 430 351 C360 358 262 359 215 346 C180 336 168 297 175 258 Z" fill="#fff" stroke="${B}" stroke-width="4"/>`;
-    s += `<path d="M215 338 C280 352 400 352 470 336 C452 350 372 360 300 359 C255 358 228 352 215 338 Z" fill="#e3ebe6"/>`;
-    s += brush(300, 205, 312, 222, 318, 238, 4, B) + brush(340, 203, 350, 220, 354, 234, 4, B) + brush(380, 206, 388, 222, 390, 236, 4, B);
+    s += fluff(335, 280, 178, 82, W, B, 21, [[Math.PI * 1.08, Math.PI * 1.92]], 13, 34, 5);
+    s += tufts(335, 290, 170, 70, 0.3, Math.PI - 0.3, 9, 30, 4, B, 22, 1);
+    // chest ruff
+    s += fluff(215, 300, 62, 56, W, B, 23, [[Math.PI * 0.45, Math.PI * 0.95]], 6, 26, 4);
     // near legs
-    s += leg('M236 318 C238 368 238 404 238 438', '#fff') + leg('M408 318 C404 368 400 404 398 438', '#fff');
-    s += `<g fill="${B}"><circle cx="232" cy="446" r="2.5"/><circle cx="242" cy="446" r="2.5"/><circle cx="394" cy="446" r="2.5"/><circle cx="404" cy="446" r="2.5"/></g>`;
-    // head
-    s += `<path d="M112 172 L104 104 L156 148 Z" fill="#fff" stroke="${B}" stroke-width="4"/>`;
-    s += `<path d="M186 146 L226 102 L232 170 Z" fill="#fff" stroke="${B}" stroke-width="4"/>`;
-    s += `<path d="M120 158 L116 124 L142 146 Z" fill="${C.peach}"/><path d="M196 146 L218 122 L222 158 Z" fill="${C.peach}"/>`;
-    s += `<path d="M100 220 C98 172 130 142 170 142 C210 142 242 172 240 220 C238 252 214 274 170 276 C126 274 102 252 100 220 Z" fill="#fff" stroke="${B}" stroke-width="4"/>`;
-    s += brush(170, 150, 168, 162, 170, 175, 4, B) + brush(152, 154, 148, 164, 152, 174, 3, B) + brush(188, 154, 192, 164, 188, 174, 3, B);
-    s += `<path d="M128 214 Q142 226 156 214" fill="none" stroke="${B}" stroke-width="6" stroke-linecap="round"/>`;
-    s += `<path d="M184 214 Q198 226 212 214" fill="none" stroke="${B}" stroke-width="6" stroke-linecap="round"/>`;
-    s += `<ellipse cx="128" cy="236" rx="13" ry="7" fill="${C.peach}" opacity=".8"/><ellipse cx="212" cy="236" rx="13" ry="7" fill="${C.peach}" opacity=".8"/>`;
-    s += `<path d="M161 234 L179 234 L170 245 Z" fill="${C.pinkNose}"/>`;
-    s += `<path d="M170 245 Q170 256 159 258 M170 245 Q170 256 181 258" fill="none" stroke="${B}" stroke-width="3" stroke-linecap="round"/>`;
-    s += `<g stroke="${B}" stroke-width="2" fill="none" stroke-linecap="round"><path d="M140 242 Q100 236 66 238"/><path d="M140 250 Q104 256 72 268"/><path d="M200 242 Q240 236 274 238"/><path d="M200 250 Q236 256 268 268"/></g>`;
+    s += leg('M246 318 C248 368 248 404 248 436', W, 44) + leg('M412 318 C408 368 404 404 402 436', W, 44);
+    s += brush(226, 340, 226, 390, 230, 432, 4, B) + brush(432, 336, 428, 388, 424, 430, -4, B);
+    s += paw(248, 444, 26, 13, W, B) + paw(402, 444, 26, 13, W, B);
+    // head facing us
+    s += head('white', 'open', 172, 212, 0.27, { seed: 2, look: [10, 6] });
     s += `</svg>`;
     return s;
   }
 
-  /* ---------- SERVICES slide 2: grey cat batting yarn (playtime) ---------- */
+  /* ---------- SERVICES slide 2: grey tabby batting yarn (playtime) ---------- */
   function slidePlay() {
-    const B = C.black, G = C.grey, D = C.greyDark;
+    const k = COATS.grey, G = k.fur, D = k.brush, L = '#e9ecee';
     let s = `<svg viewBox="0 0 620 525" xmlns="http://www.w3.org/2000/svg">`;
-    // string + ball
-    s += `<path d="M470 0 C470 60 480 90 470 130" fill="none" stroke="${C.yarnDark}" stroke-width="5"/>`;
+    s += `<path d="M470 0 C474 50 462 90 470 128" fill="none" stroke="${C.yarnDark}" stroke-width="5" stroke-linecap="round"/>`;
     s += `<g>${yarnBall(470, 175, 48, { fill: '#ff9a57', fill2: C.yarn, line: C.yarnDark, sw: 0.06, wraps: 6 })}</g>`;
-    // body
-    s += `<path d="M150 525 C150 400 200 330 300 320 C400 330 450 400 450 525 Z" fill="${G}"/>`;
-    s += `<path d="M250 340 C280 380 320 380 350 340 C340 420 260 420 250 340 Z" fill="#e9ecee"/>`;
+    // sitting body
+    s += `<path d="M190 525 C180 420 225 330 310 312 C395 330 440 420 430 525 Z" fill="${G}"/>`;
+    s += tufts(310, 430, 125, 120, Math.PI * 0.92, Math.PI * 1.32, 8, 34, 5, D, 41);
+    s += tufts(310, 430, 125, 120, Math.PI * 1.68, Math.PI * 2.08, 8, 34, 5, D, 42);
+    for (let i = 0; i < 4; i++) {
+      s += brush(205 + i * 4, 400 + i * 32, 240, 392 + i * 32, 268, 404 + i * 32, 8, D);
+      s += brush(415 - i * 4, 400 + i * 32, 380, 392 + i * 32, 352, 404 + i * 32, -8, D);
+    }
+    s += fluff(310, 420, 62, 80, L, D, 43, [[0.2, Math.PI - 0.2]], 0, 0, 0) + tufts(310, 420, 62, 80, 0.3, Math.PI - 0.3, 7, 30, 4, D, 44, 1);
     // raised paw
-    s += `<path d="M390 400 C420 330 430 260 440 230" fill="none" stroke="${G}" stroke-width="54" stroke-linecap="round"/>`;
-    s += `<ellipse cx="442" cy="222" rx="32" ry="28" fill="#e9ecee"/>`;
-    // head
-    s += `<path d="M180 175 L170 55 L270 125 Z" fill="${G}"/><path d="M420 175 L430 55 L330 125 Z" fill="${G}"/>`;
-    s += `<path d="M195 150 L190 90 L245 128 Z" fill="${C.peach}"/><path d="M405 150 L410 90 L355 128 Z" fill="${C.peach}"/>`;
-    s += `<ellipse cx="300" cy="215" rx="150" ry="125" fill="${G}"/>`;
-    s += `<ellipse cx="300" cy="275" rx="75" ry="55" fill="#e9ecee"/>`;
-    // stripes
-    s += brush(300, 95, 296, 125, 300, 150, 9, D) + brush(265, 100, 258, 128, 268, 150, 7, D) + brush(335, 100, 342, 128, 332, 150, 7, D);
-    s += brush(155, 200, 175, 205, 195, 215, 7, D) + brush(150, 230, 170, 232, 190, 238, 6, D);
-    s += brush(445, 200, 425, 205, 405, 215, -7, D) + brush(450, 230, 430, 232, 410, 238, -6, D);
-    // eyes looking up-right at the ball
-    s += `<ellipse cx="245" cy="205" rx="30" ry="34" fill="#cfe06a"/><ellipse cx="355" cy="205" rx="30" ry="34" fill="#cfe06a"/>`;
-    s += `<ellipse cx="256" cy="196" rx="12" ry="24" fill="${B}"/><ellipse cx="366" cy="196" rx="12" ry="24" fill="${B}"/>`;
-    s += `<circle cx="262" cy="186" r="5" fill="#fff"/><circle cx="372" cy="186" r="5" fill="#fff"/>`;
-    s += `<path d="M286 258 L314 258 L300 274 Z" fill="${C.pinkNose}"/>`;
-    s += `<path d="M300 274 Q300 290 284 292 M300 274 Q300 290 316 292" fill="none" stroke="${B}" stroke-width="4" stroke-linecap="round"/>`;
-    s += `<g stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"><path d="M250 270 L150 255"/><path d="M250 282 L155 295"/><path d="M350 270 L450 255"/><path d="M350 282 L445 295"/></g>`;
+    s += `<path d="M378 392 C404 330 426 272 440 236" fill="none" stroke="${G}" stroke-width="54" stroke-linecap="round"/>`;
+    s += brush(398, 372, 410, 330, 424, 290, 6, D) + brush(386, 330, 396, 300, 410, 270, 5, D);
+    s += paw(444, 226, 30, 26, L, D, -20);
+    s += paw(250, 512, 34, 16, L, D);
+    s += head('grey', 'open', 300, 215, 0.33, { seed: 5, look: [22, -18] });
     s += `</svg>`;
     return s;
   }
 
   /* ---------- SERVICES slide 3: curled up sleeping ginger cat (overnight) ---------- */
   function slideSleep() {
-    const B = C.black, O = C.ginger, D = C.gingerDark;
+    const k = COATS.orange, O = k.fur, D = k.brush, P = '#f6c99a';
     let s = `<svg viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">`;
-    s += `<ellipse cx="400" cy="560" rx="270" ry="40" fill="#000" opacity=".07"/>`;
+    s += `<ellipse cx="410" cy="590" rx="290" ry="40" fill="#1d1b26" opacity=".08"/>`;
     // body curl
-    s += `<path d="M150 430 C140 290 290 220 430 230 C590 240 670 330 650 440 C635 520 560 560 430 560 C280 560 160 530 150 430 Z" fill="${O}"/>`;
-    // stripes
-    for (let i = 0; i < 7; i++) {
-      const x = 300 + i * 50;
-      s += brush(x, 245 + Math.abs(3 - i) * 6, x + 18, 290, x + 6, 330, 12, D);
-    }
+    s += fluff(460, 440, 245, 150, O, D, 61, [[Math.PI * 1.02, Math.PI * 1.98]], 18, 44, 6);
+    for (let i = 0; i < 6; i++) { const x = 330 + i * 52; s += brush(x, 300 + Math.abs(2.5 - i) * 8, x + 22, 350, x + 8, 400, 13, D); }
     // tail wrapping the front
-    s += `<path d="M640 470 C600 560 420 590 300 560 C230 545 200 520 215 505" fill="none" stroke="${D}" stroke-width="58" stroke-linecap="round"/>`;
-    s += `<path d="M640 470 C600 560 420 590 300 560 C230 545 200 520 215 505" fill="none" stroke="${O}" stroke-width="48" stroke-linecap="round"/>`;
-    for (let i = 0; i < 4; i++) s += brush(560 - i * 85, 540 + (i === 0 ? -10 : 8), 570 - i * 85, 560, 575 - i * 85, 585, 8, D);
-    // head tucked in
-    s += `<g stroke="${D}" stroke-width="5" stroke-linejoin="round"><path d="M190 330 L170 245 L250 300 Z" fill="${O}"/><path d="M290 302 L336 236 L352 326 Z" fill="${O}"/></g>`;
-    s += `<path d="M197 315 L185 268 L232 300 Z" fill="${C.peach}"/><path d="M305 304 L332 262 L340 316 Z" fill="${C.peach}"/>`;
-    s += `<ellipse cx="265" cy="400" rx="120" ry="100" fill="${O}" stroke="${D}" stroke-width="5"/>`;
-    s += `<ellipse cx="260" cy="440" rx="70" ry="45" fill="#f6dcc2"/>`;
-    s += brush(265, 305, 262, 330, 266, 350, 8, D) + brush(235, 312, 228, 335, 238, 352, 6, D);
-    // closed eyes
-    s += `<path d="M205 395 Q228 412 251 395" fill="none" stroke="${B}" stroke-width="7" stroke-linecap="round"/>`;
-    s += `<path d="M280 395 Q303 412 326 395" fill="none" stroke="${B}" stroke-width="7" stroke-linecap="round"/>`;
-    s += `<path d="M254 425 L276 425 L265 437 Z" fill="${C.pinkNose}"/>`;
-    // paws
-    s += `<ellipse cx="330" cy="500" rx="40" ry="24" fill="#f6dcc2"/><ellipse cx="395" cy="505" rx="40" ry="24" fill="#f6dcc2"/>`;
-    // collar
-    s += `<path d="M175 470 C220 500 300 505 350 480" fill="none" stroke="${C.ink}" stroke-width="12" stroke-linecap="round"/>`;
-    s += `<circle cx="265" cy="505" r="12" fill="${C.yarn}"/>`;
-    // zzz
-    s += `<g fill="${C.ink}" font-family="Bayon, sans-serif"><text x="380" y="210" font-size="56">z</text><text x="425" y="165" font-size="42">z</text><text x="462" y="130" font-size="30">z</text></g>`;
+    s += `<path d="M690 470 C660 570 480 600 340 576 C262 562 228 540 236 516" fill="none" stroke="${O}" stroke-width="62" stroke-linecap="round"/>`;
+    for (let i = 0; i < 5; i++) s += brush(610 - i * 82, 548 + (i === 0 ? -14 : 6), 618 - i * 82, 568, 622 - i * 82, 596, 9, D);
+    s += tufts(470, 560, 230, 40, 0.15, Math.PI - 0.15, 10, 26, 4, D, 62);
+    // paws peeking out
+    s += paw(360, 545, 40, 22, P, D) + paw(432, 552, 40, 22, P, D);
+    // head tucked in, fast asleep
+    s += head('orange', 'sleepy', 290, 430, 0.31, { seed: 7, rot: -12 });
+    s += `<g fill="${C.ink}" font-family="Bayon, sans-serif"><text x="420" y="230" font-size="62">z</text><text x="470" y="182" font-size="46">z</text><text x="508" y="146" font-size="32">z</text></g>`;
     s += `</svg>`;
     return s;
   }
@@ -296,61 +286,85 @@
     mouse: () => `<svg width="41" height="41" viewBox="0 0 41 41" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 26c0-8 7-14 15-14 6 0 10 6 10 14H5Z"/><circle cx="21" cy="12" r="4"/><circle cx="11" cy="21" r="1.2" fill="currentColor"/><path d="M30 26c4 0 6-3 4-6s1-6 5-5"/></svg>`,
   };
 
-  /* ---------- How-it-works illustrations ---------- */
+  /* ---------- How-it-works illustrations (320x260, brushy style) ---------- */
   function procForm() {
-    return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
-      <g transform="rotate(-6 160 140)">
-        <rect x="85" y="30" width="150" height="200" rx="12" fill="#fff" stroke="${C.black}" stroke-width="4"/>
-        <rect x="128" y="20" width="64" height="24" rx="8" fill="${C.ink}"/>
-        ${[0, 1, 2].map(i => `<rect x="105" y="${70 + i * 45}" width="22" height="22" rx="5" fill="none" stroke="${C.black}" stroke-width="3"/>
-        <path d="M108 ${81 + i * 45} l6 7 l12 -16" fill="none" stroke="${C.yarn}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-        <rect x="138" y="${74 + i * 45}" width="${78 - i * 14}" height="6" rx="3" fill="#d9d4ea"/><rect x="138" y="${85 + i * 45}" width="${50 + i * 8}" height="6" rx="3" fill="#d9d4ea"/>`).join('')}
-      </g>
-      <g transform="rotate(35 250 160)"><rect x="238" y="70" width="22" height="140" rx="4" fill="${C.yarn}" stroke="${C.black}" stroke-width="3"/><path d="M238 210 L249 238 L260 210 Z" fill="#f6dcc2" stroke="${C.black}" stroke-width="3"/><rect x="238" y="70" width="22" height="18" fill="${C.ink}"/></g>
-      <g fill="${C.ink}" transform="translate(52 196)"><ellipse cx="0" cy="8" rx="14" ry="12"/><circle cx="-14" cy="-8" r="5"/><circle cx="-4" cy="-15" r="5"/><circle cx="8" cy="-15" r="5"/><circle cx="17" cy="-7" r="5"/></g>
-    </svg>`;
+    const B = C.black, W = '#fff';
+    let s = `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">`;
+    // cat behind the sheet
+    s += fluff(205, 175, 74, 58, W, B, 71, [[Math.PI * 1.05, Math.PI * 1.95]], 8, 18, 3);
+    s += head('white', 'open', 205, 96, 0.16, { seed: 11, look: [-14, 22] });
+    // the form
+    s += `<g transform="rotate(-7 155 185)"><rect x="68" y="118" width="178" height="132" rx="6" fill="#fff"/>`;
+    s += brush(70, 120, 150, 116, 244, 121, 2.2, B) + brush(70, 122, 66, 190, 70, 248, 2.2, B) + brush(244, 122, 250, 190, 246, 248, -2.2, B);
+    [0, 1, 2].forEach((i) => {
+      const y = 140 + i * 36;
+      s += `<rect x="84" y="${y}" width="18" height="18" rx="4" fill="none" stroke="${B}" stroke-width="2.5"/>`;
+      s += `<path d="M87 ${y + 9} l5 6 l11 -14" fill="none" stroke="${C.yarn}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`;
+      s += `<rect x="112" y="${y + 3}" width="${100 - i * 18}" height="5" rx="2.5" fill="#d9d4ea"/><rect x="112" y="${y + 12}" width="${66 + i * 10}" height="5" rx="2.5" fill="#d9d4ea"/>`;
+    });
+    s += `</g>`;
+    // paws resting on the paper
+    s += paw(176, 128, 17, 11, W, B, -8) + paw(238, 122, 17, 11, W, B, -8);
+    // pencil
+    s += `<g transform="rotate(38 268 178)"><rect x="258" y="96" width="18" height="118" rx="3" fill="${C.yarn}"/><rect x="258" y="96" width="18" height="16" fill="${C.ink}"/><path d="M258 214 L267 238 L276 214 Z" fill="#f6dcc2"/><path d="M264 230 L267 238 L270 230 Z" fill="${B}"/></g>`;
+    s += `<g fill="${C.ink}" transform="translate(44 214)"><ellipse cx="0" cy="8" rx="12" ry="10"/><circle cx="-12" cy="-6" r="4.5"/><circle cx="-3" cy="-13" r="4.5"/><circle cx="8" cy="-13" r="4.5"/><circle cx="15" cy="-5" r="4.5"/></g>`;
+    s += `</svg>`;
+    return s;
   }
   function procContact() {
-    const phone = (x, r, face) => `<g transform="rotate(${r} ${x + 50} 140)"><rect x="${x}" y="40" width="100" height="190" rx="16" fill="${C.ink}"/><rect x="${x + 8}" y="56" width="84" height="158" rx="8" fill="#fff"/>${face}</g>`;
-    const catFace = (x) => `<circle cx="${x + 50}" cy="110" r="26" fill="${C.ginger}"/><path d="M${x + 28} 98 l2 -24 l16 14Z M${x + 72} 98 l-2 -24 l-16 14Z" fill="${C.ginger}"/><path d="M${x + 38} 110 q5 5 10 0 M${x + 52} 110 q5 5 10 0" stroke="${C.black}" stroke-width="3" fill="none" stroke-linecap="round"/><rect x="${x + 22}" y="150" width="56" height="8" rx="4" fill="#d9d4ea"/><rect x="${x + 30}" y="166" width="40" height="8" rx="4" fill="#d9d4ea"/>`;
-    const person = (x) => `<circle cx="${x + 50}" cy="102" r="18" fill="#f6dcc2"/><path d="M${x + 32} 96 q18 -26 36 0 q-4 -16 -18 -16 q-14 0 -18 16Z" fill="${C.plum}"/><path d="M${x + 22} 150 q28 -40 56 0Z" fill="${C.yarn}"/><rect x="${x + 22}" y="166" width="56" height="8" rx="4" fill="#d9d4ea"/>`;
-    return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
-      ${phone(55, -10, catFace(55))}${phone(165, 9, person(165))}
-      <path d="M150 40 q10 -14 20 0 q10 -14 20 0 q0 14 -20 26 q-20 -12 -20 -26Z" fill="${C.yarn}"/>
-      <g fill="none" stroke="${C.ink}" stroke-width="3" stroke-linecap="round"><path d="M40 70 q-14 10 -2 24"/><path d="M28 60 q-24 18 -2 46"/><path d="M282 70 q14 10 2 24"/><path d="M294 60 q24 18 2 46"/></g>
-    </svg>`;
+    const k = COATS.orange, O = k.fur, D = k.brush;
+    let s = `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">`;
+    s += fluff(160, 222, 92, 74, O, D, 81, [[Math.PI * 1.02, Math.PI * 1.98]], 10, 22, 3.5);
+    s += `<ellipse cx="160" cy="232" rx="42" ry="44" fill="#f6dcc2"/>`;
+    s += head('orange', 'open', 160, 100, 0.19, { seed: 12, look: [0, 26] });
+    // phone
+    s += `<g transform="rotate(-8 160 205)"><rect x="124" y="150" width="74" height="104" rx="14" fill="${C.ink}"/><rect x="131" y="160" width="60" height="84" rx="7" fill="#fff"/>`;
+    s += heart(161, 190, 0.6, C.yarn) + `<rect x="139" y="218" width="44" height="5" rx="2.5" fill="#d9d4ea"/><rect x="146" y="228" width="30" height="5" rx="2.5" fill="#d9d4ea"/></g>`;
+    s += paw(124, 196, 15, 12, O, D, 20) + paw(198, 190, 15, 12, O, D, -20);
+    // chat bubbles
+    s += `<g><rect x="22" y="44" width="66" height="38" rx="14" fill="#fff"/><path d="M60 80 L52 96 L74 80 Z" fill="#fff"/>`;
+    s += `<circle cx="40" cy="63" r="4.5" fill="${C.ink}"/><circle cx="55" cy="63" r="4.5" fill="${C.ink}"/><circle cx="70" cy="63" r="4.5" fill="${C.ink}"/></g>`;
+    s += `<g><rect x="226" y="56" width="86" height="38" rx="14" fill="${C.ink}"/><path d="M248 92 L252 108 L264 92 Z" fill="${C.ink}"/><text x="269" y="82" text-anchor="middle" font-family="Bayon, sans-serif" font-size="19" fill="#fff">MEOW?</text></g>`;
+    s += sparkle(286, 140, 9, C.yarn) + sparkle(36, 140, 7, C.ink);
+    s += `</svg>`;
+    return s;
   }
   function procMeet() {
-    return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
-      <path d="M0 150 C60 140 110 150 150 160 L150 200 C100 196 50 200 0 205 Z" fill="${C.ink}"/>
-      <path d="M140 150 C170 140 190 150 200 165 C205 175 196 182 186 178 L170 172 C175 185 168 196 150 196 Z" fill="#f6dcc2" stroke="${C.black}" stroke-width="3"/>
-      <path d="M290 260 C290 190 270 150 250 150 C225 150 215 190 215 260 Z" fill="${C.cream2}" stroke="${C.black}" stroke-width="4"/>
-      <path d="M205 110 L198 60 L235 88 Z" fill="${C.cream2}" stroke="${C.black}" stroke-width="4" stroke-linejoin="round"/>
-      <path d="M275 92 L292 48 L300 100 Z" fill="${C.cream2}" stroke="${C.black}" stroke-width="4" stroke-linejoin="round"/>
-      <ellipse cx="250" cy="130" rx="55" ry="48" fill="${C.cream2}" stroke="${C.black}" stroke-width="4"/>
-      <path d="M206 98 L203 74 L224 90 Z M285 92 L292 70 L296 98 Z" fill="${C.peach}"/>
-      <circle cx="232" cy="124" r="6" fill="${C.black}"/><circle cx="270" cy="124" r="6" fill="${C.black}"/>
-      <path d="M200 145 L214 143 L206 152 Z" fill="${C.pinkNose}"/>
-      <g stroke="${C.black}" stroke-width="2" fill="none" stroke-linecap="round"><path d="M215 150 L185 140"/><path d="M215 156 L188 160"/></g>
-      <path d="M150 70 q12 -16 24 0 q12 -16 24 0 q0 16 -24 30 q-24 -14 -24 -30Z" fill="${C.yarn}"/>
-      <g fill="${C.ink}"><circle cx="120" cy="90" r="4"/><circle cx="210" cy="40" r="3"/><circle cx="105" cy="120" r="3"/></g>
-    </svg>`;
+    const k = COATS.black, K = k.fur, D = k.brush, skin = '#f6dcc2';
+    let s = `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">`;
+    // sleeve + hand reaching in
+    s += `<path d="M-10 168 C40 160 84 162 112 170 L114 214 C80 210 40 212 -10 218 Z" fill="${C.ink}"/>`;
+    s += `<path d="M108 170 C132 160 156 162 172 172 C182 178 178 188 168 186 L160 184 C172 190 172 200 162 202 L150 202 C158 208 152 216 142 214 L112 212 Z" fill="${skin}"/>`;
+    s += brush(140, 182, 152, 184, 164, 186, 1.6, C.black) + brush(134, 196, 146, 198, 156, 200, 1.6, C.black);
+    // the cat leaning in to sniff
+    s += fluff(258, 222, 76, 62, K, D, 91, [[Math.PI * 1.05, Math.PI * 1.95]], 9, 20, 3.5);
+    s += `<path d="M310 214 C330 180 322 140 300 130" fill="none" stroke="${K}" stroke-width="18" stroke-linecap="round"/>`;
+    s += head('black', 'open', 226, 128, 0.18, { seed: 13, rot: -12, look: [-24, 10] });
+    s += paw(214, 250, 18, 10, K, D);
+    s += heart(176, 74, 0.9, C.yarn) + sparkle(140, 108, 7, C.ink) + sparkle(204, 40, 6, C.ink);
+    s += `</svg>`;
+    return s;
   }
   function procService() {
-    return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="160" cy="225" rx="120" ry="30" fill="${C.ink}"/>
-      <ellipse cx="160" cy="212" rx="120" ry="30" fill="#7f8af0"/>
-      <path d="M110 215 C100 150 120 110 160 108 C200 110 220 150 210 215 Z" fill="${C.ginger}"/>
-      <path d="M210 205 C250 200 262 170 245 150" fill="none" stroke="${C.ginger}" stroke-width="20" stroke-linecap="round"/>
-      <path d="M118 78 L112 30 L148 58 Z M202 78 L208 30 L172 58 Z" fill="${C.ginger}"/>
-      <path d="M124 68 L121 44 L140 60 Z M196 68 L199 44 L180 60 Z" fill="${C.peach}"/>
-      <ellipse cx="160" cy="95" rx="52" ry="44" fill="${C.ginger}"/>
-      <path d="M135 92 q8 8 16 0 M169 92 q8 8 16 0" stroke="${C.black}" stroke-width="4" fill="none" stroke-linecap="round"/>
-      <path d="M153 106 L167 106 L160 114 Z" fill="${C.pinkNose}"/>
-      <ellipse cx="160" cy="165" rx="30" ry="40" fill="#f6dcc2"/>
-      <path d="M128 52 L135 30 L148 44 L160 24 L172 44 L185 30 L192 52 Z" fill="${C.yarn}" stroke="${C.black}" stroke-width="3" stroke-linejoin="round"/>
-      <g fill="${C.yarn}"><path d="M60 80 l5 12 12 5 -12 5 -5 12 -5 -12 -12 -5 12 -5Z"/><path d="M262 110 l4 9 9 4 -9 4 -4 9 -4 -9 -9 -4 9 -4Z"/><path d="M250 40 l3 7 7 3 -7 3 -3 7 -3 -7 -7 -3 7 -3Z"/></g>
-    </svg>`;
+    const k = COATS.grey, G = k.fur, D = k.brush;
+    let s = `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">`;
+    // cushion
+    s += `<ellipse cx="150" cy="232" rx="128" ry="26" fill="${C.ink}"/><ellipse cx="150" cy="220" rx="128" ry="28" fill="#7f8af0"/>`;
+    s += `<g fill="none" stroke="#5b66e0" stroke-width="3" stroke-linecap="round"><path d="M40 222 Q150 238 260 222"/></g>`;
+    // loafing tabby
+    s += `<path d="M236 214 C268 214 280 190 266 176" fill="none" stroke="${G}" stroke-width="16" stroke-linecap="round"/>`;
+    s += fluff(150, 186, 96, 46, G, D, 101, [[Math.PI, Math.PI * 2]], 12, 18, 3);
+    for (let i = 0; i < 4; i++) s += brush(170 + i * 18, 150, 176 + i * 18, 166, 172 + i * 18, 182, 5, D);
+    s += paw(116, 222, 18, 10, '#e9ecee', D) + paw(160, 224, 18, 10, '#e9ecee', D);
+    s += head('grey', 'happy', 120, 128, 0.19, { seed: 14 });
+    // crown + sparkles
+    s += `<path d="M100 42 L106 22 L116 34 L124 14 L132 34 L142 22 L148 42 Z" fill="${C.yarn}"/>`;
+    s += sparkle(46, 70, 10, C.yarn) + sparkle(222, 46, 8, C.ink) + sparkle(200, 96, 6, C.yarn);
+    // bowl of fish
+    s += `<path d="M236 112 L304 112 C302 136 288 148 270 148 C252 148 238 136 236 112 Z" fill="${C.ink}"/><ellipse cx="270" cy="112" rx="34" ry="7" fill="#5b66e0"/>`;
+    s += `<g transform="translate(252 94) rotate(-10)"><path d="M0 0 C10 -12 30 -12 40 0 C30 12 10 12 0 0 Z" fill="${C.yarn}"/><path d="M38 0 L52 -9 L50 0 L52 9 Z" fill="${C.yarn}"/><circle cx="10" cy="-2" r="2" fill="#1d1b26"/></g>`;
+    s += `</svg>`;
+    return s;
   }
 
   /* ---------- Instagram block: cat rear with tail up ---------- */
@@ -455,5 +469,5 @@
     return s;
   }
 
-  window.ART = { C, heroCat, heroCats, catFace, ring, lyingCat, slideWalk, slidePlay, slideSleep, toy, smallYarn, bigYarn, yarnCluster, procForm, procContact, procMeet, procService, catRear, foundUs, logoCat, icon };
+  window.ART = { C, COATS, catHead, head, heroCat, heroCats, catFace, ring, lyingCat, slideWalk, slidePlay, slideSleep, toy, smallYarn, bigYarn, yarnCluster, procForm, procContact, procMeet, procService, catRear, foundUs, logoCat, icon };
 })();

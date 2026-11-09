@@ -149,9 +149,13 @@
   const footerTheme = body.dataset.footer;
   if (footerTheme) $$('.footer-wrap').forEach((f) => f.classList.add('footer--' + footerTheme));
 
-  let seen = false;
-  try { seen = sessionStorage.getItem('sp-entered') === '1'; } catch (e) { /* storage blocked */ }
-  const usePreloader = !seen && body.dataset.preloader !== 'off';
+  let seen = false, wipeIn = false;
+  try {
+    seen = sessionStorage.getItem('sp-entered') === '1';
+    wipeIn = sessionStorage.getItem('sp-wipe') === '1';
+    sessionStorage.removeItem('sp-wipe');
+  } catch (e) { /* storage blocked */ }
+  const usePreloader = !seen && !wipeIn && body.dataset.preloader !== 'off';
   if (usePreloader) { body.classList.add('is-loading'); body.insertAdjacentHTML('afterbegin', preloaderHTML()); }
   injectArt();
 
@@ -326,6 +330,130 @@
     });
   }
 
+  /* ---------------- page transitions: yarn-ball circle wipe ---------------- */
+  const wipe = (() => {
+    body.insertAdjacentHTML('beforeend', `<div class="page-wipe${wipeIn ? ' is-covering' : ''}" aria-hidden="true">
+      <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+        <defs><mask id="pw-mask"><rect width="100%" height="100%" fill="#fff"/><circle id="pw-hole" cx="50%" cy="50%" r="0" fill="#000"/></mask></defs>
+        <rect class="page-wipe__fill page-wipe__rect" width="100%" height="100%" mask="url(#pw-mask)"/>
+        <circle id="pw-grow" class="page-wipe__fill" cx="0" cy="0" r="0"/>
+      </svg>
+      <span class="page-wipe__ball" data-art="smallYarn"></span>
+    </div>`);
+    const el = $('.page-wipe'), rect = $('.page-wipe__rect', el), hole = $('#pw-hole', el), grow = $('#pw-grow', el), ball = $('.page-wipe__ball', el);
+    injectArt(el);
+    document.documentElement.classList.remove('wipe-in');
+    const maxR = () => Math.hypot(window.innerWidth, window.innerHeight);
+    if (wipeIn) gsap.set(ball, { left: '50%', top: '50%', xPercent: -50, yPercent: -50, scale: 1 });
+
+    function reveal(onStart) {
+      gsap.timeline({ onComplete: () => { el.classList.remove('is-covering'); gsap.set(hole, { attr: { r: 0 } }); } })
+        .to(ball, { scale: 0, rotate: 180, duration: 0.35, ease: 'back.in(2)' })
+        .to(hole, { attr: { r: maxR() }, duration: 1, ease: 'power2.inOut', onStart }, '-=0.1');
+    }
+    function cover(x, y, href) {
+      el.classList.add('is-leaving');
+      gsap.set(rect, { display: 'none' });
+      gsap.set(grow, { attr: { cx: x, cy: y, r: 0 } });
+      gsap.set(ball, { left: x, top: y, xPercent: -50, yPercent: -50, scale: 0, rotate: 0 });
+      gsap.timeline({ onComplete: () => { try { sessionStorage.setItem('sp-wipe', '1'); sessionStorage.setItem('sp-entered', '1'); } catch (e) { /* ignore */ } window.location.href = href; } })
+        .to(grow, { attr: { r: maxR() }, duration: 0.65, ease: 'power2.in' })
+        .to(ball, { scale: 1, rotate: 200, left: '50%', top: '50%', duration: 0.65, ease: 'power2.inOut' }, 0);
+    }
+    function reset() {
+      el.classList.remove('is-leaving', 'is-covering');
+      gsap.set(rect, { display: '' }); gsap.set(grow, { attr: { r: 0 } }); gsap.set(hole, { attr: { r: 0 } });
+    }
+    window.addEventListener('pageshow', (e) => { if (e.persisted) reset(); });
+    document.addEventListener('click', (e) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const a = e.target.closest('a[href]');
+      if (!a || a.target === '_blank' || a.hasAttribute('download')) return;
+      const url = new URL(a.href, location.href);
+      if (url.origin !== location.origin || !/\.html$|\/$/.test(url.pathname)) return;
+      if (url.pathname === location.pathname && url.search === location.search) return;
+      e.preventDefault();
+      closeMenu();
+      lenis.stop();
+      cover(e.clientX || window.innerWidth / 2, e.clientY || window.innerHeight / 2, url.href);
+    });
+    return { reveal };
+  })();
+
+  /* ---------------- signature cursor: yarn ball trailing a thread ---------------- */
+  if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    document.documentElement.classList.add('has-cursor');
+    body.insertAdjacentHTML('beforeend', `<canvas class="cursor-trail" aria-hidden="true"></canvas>
+      <div class="cursor" aria-hidden="true"><span class="cursor__ball" data-art="smallYarn"></span>
+      <svg class="cursor__paw" viewBox="0 0 40 40"><ellipse cx="20" cy="26" rx="10" ry="8.5"/><ellipse cx="9" cy="15" rx="4" ry="5" transform="rotate(-20 9 15)"/><ellipse cx="16" cy="9" rx="4" ry="5"/><ellipse cx="25" cy="9" rx="4" ry="5"/><ellipse cx="32" cy="15" rx="4" ry="5" transform="rotate(20 32 15)"/></svg></div>`);
+    const cur = $('.cursor'), canvas = $('.cursor-trail'), ctx2 = canvas.getContext('2d');
+    injectArt(cur);
+    const pos = { x: -100, y: -100 }, pts = [];
+    let dpr = 1, spin = 0, shown = false;
+    const size = () => { dpr = Math.min(window.devicePixelRatio || 1, 2); canvas.width = window.innerWidth * dpr; canvas.height = window.innerHeight * dpr; };
+    size(); window.addEventListener('resize', size);
+    const qx = gsap.quickTo(cur, 'x', { duration: 0.18, ease: 'power3.out' });
+    const qy = gsap.quickTo(cur, 'y', { duration: 0.18, ease: 'power3.out' });
+    window.addEventListener('mousemove', (e) => {
+      const dx = e.clientX - pos.x, dy = e.clientY - pos.y;
+      pos.x = e.clientX; pos.y = e.clientY;
+      qx(pos.x); qy(pos.y);
+      spin += Math.hypot(dx, dy) * 0.8;
+      pts.push({ x: pos.x, y: pos.y, t: performance.now() });
+      if (!shown) { shown = true; cur.classList.add('is-visible'); }
+    }, { passive: true });
+    document.addEventListener('mouseleave', () => { shown = false; cur.classList.remove('is-visible'); });
+    const INTERACTIVE = 'a, button, label, select, summary, [role="button"], .select, .svc-tab, .category-item, .hc-head, .hc-body, .care-pet__content-read, .testimonial-slide, .accordion__main';
+    const TEXT = 'input:not([type="date"]):not([type="time"]), textarea';
+    document.addEventListener('mouseover', (e) => {
+      cur.classList.toggle('is-paw', !!e.target.closest(INTERACTIVE));
+      cur.classList.toggle('is-text', !!e.target.closest(TEXT));
+    });
+    document.addEventListener('mousedown', () => cur.classList.add('is-down'));
+    document.addEventListener('mouseup', () => cur.classList.remove('is-down'));
+    gsap.ticker.add(() => {
+      const busy = !!document.getElementById('preloader') || document.body.classList.contains('is-loading');
+      cur.classList.toggle('is-hidden', busy);
+      gsap.set($('.cursor__ball', cur), { rotate: spin });
+      const now = performance.now();
+      while (pts.length && now - pts[0].t > 520) pts.shift();
+      ctx2.clearRect(0, 0, canvas.width, canvas.height);
+      if (busy || pts.length < 2) return;
+      ctx2.lineCap = 'round'; ctx2.lineJoin = 'round';
+      const trail = [...pts, { x: gsap.getProperty(cur, 'x'), y: gsap.getProperty(cur, 'y'), t: now }];
+      for (let i = 1; i < trail.length - 1; i++) {
+        const p0 = trail[i - 1], p1 = trail[i], p2 = trail[i + 1];
+        const a = 1 - (now - p1.t) / 520;
+        ctx2.strokeStyle = `rgba(255, 122, 46, ${Math.max(0, a) * 0.85})`;
+        ctx2.lineWidth = (1 + a * 1.6) * dpr;
+        ctx2.beginPath();
+        ctx2.moveTo(((p0.x + p1.x) / 2) * dpr, ((p0.y + p1.y) / 2) * dpr);
+        ctx2.quadraticCurveTo(p1.x * dpr, p1.y * dpr, ((p1.x + p2.x) / 2) * dpr, ((p1.y + p2.y) / 2) * dpr);
+        ctx2.stroke();
+      }
+    });
+  }
+
+  /* ---------------- 3D tilt + glare on cards ---------------- */
+  if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    const TILT = '.blog-card, .card-cost-walk, .cost-of-walking__card-empty';
+    let tiltEl = null;
+    document.addEventListener('mousemove', (e) => {
+      const el = e.target.closest(TILT);
+      if (el !== tiltEl) {
+        if (tiltEl) { gsap.to(tiltEl, { rotateX: 0, rotateY: 0, duration: 0.7, ease: 'power3.out' }); tiltEl.classList.remove('is-tilting'); }
+        tiltEl = el;
+        if (el) el.classList.add('is-tilting');
+      }
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const px = (e.clientX - r.left) / r.width - 0.5, py = (e.clientY - r.top) / r.height - 0.5;
+      gsap.to(el, { rotateY: px * 9, rotateX: -py * 9, transformPerspective: 900, duration: 0.45, ease: 'power2.out' });
+      el.style.setProperty('--gx', `${(px + 0.5) * 100}%`);
+      el.style.setProperty('--gy', `${(py + 0.5) * 100}%`);
+    }, { passive: true });
+  }
+
   /* ---------------- boot ---------------- */
   window.SITE = { $, $$, gsap, ScrollTrigger, lenis, isDesktop, BRAND, revealLines, fadeUp, splitLines, onIntro, openMenu, closeMenu, injectArt, renderArt, PAGE };
 
@@ -334,6 +462,7 @@
     $$('.js-fade').forEach((el) => fadeUp(el));
     ScrollTrigger.refresh();
     if (usePreloader) preloader();
+    else if (wipeIn) wipe.reveal(() => setTimeout(runIntro, 200));
     else requestAnimationFrame(runIntro);
   });
   window.addEventListener('load', () => ScrollTrigger.refresh());

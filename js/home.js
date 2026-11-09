@@ -56,7 +56,7 @@
       titles.forEach((t, i) => tl.add(revealLines(t, { delay: 0 }, true), i * 0.2));
       tl.to('.bottom-title__letter', { rotate: -13, duration: 0.5, ease: 'bounce.out' });
       fadeUp($('.small_title'), { delay: 0.75 }, true);
-      gsap.fromTo('.main-page__social-links .social-link', { opacity: 0, yPercent: 50 }, { opacity: 1, yPercent: 0, stagger: 0.2, ease: 'power3.out', duration: 1.4 });
+      gsap.fromTo('.main-page__social-links .social-link, .purr-toggle', { opacity: 0, yPercent: 50 }, { opacity: 1, yPercent: 0, stagger: 0.2, ease: 'power3.out', duration: 1.4 });
     } else {
       revealLines($('.mobile-title'), {}, true).eventCallback('onComplete', () => gsap.to('.mobile-title__letter', { rotate: -13, duration: 0.5, ease: 'bounce.out' }));
       fadeUp($('.mobile__sub-title'), {}, true);
@@ -69,7 +69,7 @@
   const coats = $$('.hc-slide');
   let coat = 0, coatTimer = null, heroVisible = true;
   function nextCoat() {
-    if (!heroVisible || document.hidden) return;
+    if (!heroVisible || document.hidden || (typeof hovering !== 'undefined' && hovering)) return;
     const cur = coats[coat];
     coat = (coat + 1) % coats.length;
     const nxt = coats[coat];
@@ -83,6 +83,139 @@
     coatTimer = setInterval(nextCoat, 4200);
     ScrollTrigger.create({ trigger: '.main-page__content', start: 'top top', end: 'bottom top', onToggle: (self) => { heroVisible = self.isActive; } });
   }
+
+
+  /* ---------------- hero cat comes alive ----------------
+     eyes follow the cursor · blinks · peeks · ears twitch on hover ·
+     click to meet the next cat · optional purr (Web Audio, no files) */
+  const heroWrap = $('.main-page__white-cat');
+  const activeSvg = () => $('.hc-slide.is-active svg', heroWrap);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  let mouse = { x: window.innerWidth / 2, y: window.innerHeight * 0.4 }, hovering = false, swapBusy = false;
+  window.addEventListener('mousemove', (e) => { mouse.x = e.clientX; mouse.y = e.clientY; }, { passive: true });
+
+  function setters(svg) {
+    if (svg._look) return svg._look;
+    const pupils = $$('.hc-pupil', svg), look = $('.hc-look', svg);
+    svg._look = {
+      px: pupils.map((p) => gsap.quickTo(p, 'x', { duration: 0.35, ease: 'power3.out' })),
+      py: pupils.map((p) => gsap.quickTo(p, 'y', { duration: 0.35, ease: 'power3.out' })),
+      lx: gsap.quickTo(look, 'x', { duration: 0.9, ease: 'power3.out' }),
+      ly: gsap.quickTo(look, 'y', { duration: 0.9, ease: 'power3.out' }),
+    };
+    return svg._look;
+  }
+  gsap.ticker.add(() => {
+    if (!heroVisible || !isDesktop()) return;
+    const svg = activeSvg(); if (!svg) return;
+    const r = $('.hc-head', svg).getBoundingClientRect();
+    const dx = (mouse.x - (r.left + r.width / 2)) / (window.innerWidth * 0.5);
+    const dy = (mouse.y - (r.top + r.height * 0.55)) / (window.innerHeight * 0.5);
+    const s = setters(svg);
+    s.px.forEach((f) => f(clamp(dx * 26, -24, 24)));
+    s.py.forEach((f) => f(clamp(dy * 20, -18, 18)));
+    s.lx(clamp(dx * 22, -22, 22)); s.ly(clamp(dy * 14, -14, 14));
+  });
+
+  function blink(svg = activeSvg()) {
+    if (!svg) return;
+    gsap.fromTo($$('.hc-blink', svg), { scaleY: 1 }, { scaleY: 0.08, transformOrigin: '50% 55%', duration: 0.07, yoyo: true, repeat: 1, ease: 'power1.in' });
+  }
+  function peek(ms = 1500) {
+    const svg = activeSvg();
+    if (!svg || svg.classList.contains('eyes-open')) return blink(svg);
+    svg.classList.add('is-peek'); blink(svg);
+    clearTimeout(svg._peekT);
+    svg._peekT = setTimeout(() => { if (!hovering) svg.classList.remove('is-peek'); }, ms);
+  }
+  function twitch(which) {
+    const svg = activeSvg(); if (!svg) return;
+    const ears = $$('.hc-ear-tw', svg).filter((_, i) => which === undefined || i === which);
+    ears.forEach((ear, i) => gsap.timeline({ delay: i * 0.06 })
+      .to(ear, { rotation: i ? 14 : -14, transformOrigin: '50% 100%', duration: 0.07 })
+      .to(ear, { rotation: i ? -5 : 5, duration: 0.07 })
+      .to(ear, { rotation: 0, duration: 0.2, ease: 'power2.out' }));
+  }
+  (function idle() {
+    setTimeout(() => {
+      if (heroVisible && !document.hidden) { const r = Math.random(); if (r < 0.5) blink(); else if (r < 0.8) peek(); else twitch(Math.round(Math.random())); }
+      idle();
+    }, 2200 + Math.random() * 2600);
+  })();
+
+  // hover + click on the cat itself
+  let lastTwitch = 0;
+  heroWrap.addEventListener('pointerover', (e) => {
+    if (!e.target.closest('.hc-head, .hc-body')) return;
+    if (!hovering) { hovering = true; const svg = activeSvg(); if (svg) svg.classList.add('is-peek'); Purr.update(); }
+    if (e.target.closest('.hc-head') && Date.now() - lastTwitch > 700) { lastTwitch = Date.now(); twitch(); }
+  });
+  heroWrap.addEventListener('pointerout', (e) => {
+    if (e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.hc-slide.is-active .hc-head, .hc-slide.is-active .hc-body')) return;
+    hovering = false; const svg = activeSvg(); if (svg) svg.classList.remove('is-peek'); Purr.update();
+  });
+  heroWrap.addEventListener('click', (e) => {
+    if (!e.target.closest('.hc-head, .hc-body') || swapBusy) return;
+    swapBusy = true; setTimeout(() => { swapBusy = false; }, 1100);
+    hovering = false;
+    const wasForced = heroVisible; heroVisible = true; nextCoat(); heroVisible = wasForced;
+    if (coatTimer) { clearInterval(coatTimer); coatTimer = setInterval(nextCoat, 6000); }
+    Purr.chirp();
+  });
+
+  /* purr: brown noise, low-passed, pulsed ~24 Hz with a slow breathing swell */
+  const Purr = (() => {
+    let ctx, master, on = false;
+    function init() {
+      const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return false;
+      ctx = new AC();
+      const len = ctx.sampleRate * 2, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+      let last = 0;
+      for (let i = 0; i < len; i++) { last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = last * 3.5; }
+      const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 240;
+      const am = ctx.createGain(); am.gain.value = 0.5;
+      const lfo = ctx.createOscillator(); lfo.type = 'triangle'; lfo.frequency.value = 24;
+      const lfoG = ctx.createGain(); lfoG.gain.value = 0.5; lfo.connect(lfoG).connect(am.gain);
+      const breath = ctx.createGain(); breath.gain.value = 0.65;
+      const bl = ctx.createOscillator(); bl.frequency.value = 0.42;
+      const blG = ctx.createGain(); blG.gain.value = 0.35; bl.connect(blG).connect(breath.gain);
+      master = ctx.createGain(); master.gain.value = 0;
+      src.connect(lp).connect(am).connect(breath).connect(master).connect(ctx.destination);
+      src.start(); lfo.start(); bl.start();
+      return true;
+    }
+    function update() {
+      if (!ctx) return;
+      const v = !on || !heroVisible || document.hidden ? 0 : hovering ? 1.6 : 0.6;
+      master.gain.setTargetAtTime(v, ctx.currentTime, 0.3);
+    }
+    function chirp() {
+      if (!on || !ctx) return;
+      const o = ctx.createOscillator(), g = ctx.createGain(), t = ctx.currentTime;
+      o.type = 'sine'; o.frequency.setValueAtTime(520, t); o.frequency.exponentialRampToValueAtTime(880, t + 0.09); o.frequency.exponentialRampToValueAtTime(640, t + 0.2);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.08, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.24);
+      o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + 0.26);
+    }
+    function toggle() {
+      on = !on;
+      if (on && !ctx && !init()) { on = false; return on; }
+      if (ctx) { if (on) ctx.resume(); }
+      update();
+      return on;
+    }
+    document.addEventListener('visibilitychange', update);
+    return { toggle, update, chirp };
+  })();
+  const purrBtn = $('.purr-toggle');
+  if (purrBtn) purrBtn.addEventListener('click', () => {
+    const on = Purr.toggle();
+    purrBtn.setAttribute('aria-pressed', String(on));
+    purrBtn.setAttribute('aria-label', on ? 'Turn purring sound off' : 'Turn purring sound on');
+    $('.purr-toggle__label', purrBtn).textContent = on ? 'purr on' : 'purr off';
+    if (on) { peek(1800); Purr.chirp(); }
+  });
+  ScrollTrigger.create({ trigger: '.main-page__content', start: 'top top', end: 'bottom top', onToggle: () => setTimeout(() => Purr.update(), 0) });
 
   /* ---------------- services slider ---------------- */
   const slotBase = [180, 90, 270, 0]; // left, bottom, top, right
